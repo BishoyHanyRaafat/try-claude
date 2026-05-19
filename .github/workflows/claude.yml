@@ -1,0 +1,172 @@
+name: Claude Code
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+  issues:
+    types: [opened, assigned]
+  pull_request_review:
+    types: [submitted]
+
+jobs:
+  claude:
+    if: |
+      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
+      (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude')) ||
+      (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude')) ||
+      (github.event_name == 'issues' && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude')))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      id-token: write
+      actions: read # Required for Claude to read CI results on PRs
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Clone server
+        run: |
+          git clone https://github.com/BishoyHanyRaafat/cc-translation-server.git
+
+      - name: Install local server deps
+        working-directory: cc-translation-server
+        run: |
+          uv sync
+
+      - name: Run translation server
+        working-directory: cc-translation-server
+        env:
+          NVIDIA_NIM_API_KEY: ${{ secrets.NVIDIA_NIM_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          KIMI_API_KEY: ${{ secrets.KIMI_API_KEY }}
+          WAFER_API_KEY: ${{ secrets.WAFER_API_KEY }}
+          OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
+          BASETEN_API_KEY: ${{ secrets.BASETEN_API_KEY }}
+          ZAI_API_KEY: ${{ secrets.ZAI_API_KEY }}
+          LM_STUDIO_BASE_URL: ${{ secrets.LM_STUDIO_BASE_URL || 'http://localhost:1234/v1' }}
+          LLAMACPP_BASE_URL: ${{ secrets.LLAMACPP_BASE_URL || 'http://localhost:8080/v1' }}
+          OLLAMA_BASE_URL: ${{ secrets.OLLAMA_BASE_URL || 'http://localhost:11434' }}
+          MODEL_OPUS: ${{ secrets.MODEL_OPUS }}
+          MODEL_SONNET: ${{ secrets.MODEL_SONNET }}
+          MODEL_HAIKU: ${{ secrets.MODEL_HAIKU }}
+          MODEL: ${{ secrets.MODEL ||'nvidia_nim/nvidia/nemotron-3-super-120b-a12b' }}
+          FCC_SMOKE_MODEL_NVIDIA_NIM: ${{ secrets.FCC_SMOKE_MODEL_NVIDIA_NIM }}
+          FCC_SMOKE_MODEL_OPEN_ROUTER: ${{ secrets.FCC_SMOKE_MODEL_OPEN_ROUTER }}
+          FCC_SMOKE_MODEL_DEEPSEEK: ${{ secrets.FCC_SMOKE_MODEL_DEEPSEEK }}
+          FCC_SMOKE_MODEL_LMSTUDIO: ${{ secrets.FCC_SMOKE_MODEL_LMSTUDIO }}
+          FCC_SMOKE_MODEL_LLAMACPP: ${{ secrets.FCC_SMOKE_MODEL_LLAMACPP }}
+          FCC_SMOKE_MODEL_OLLAMA: ${{ secrets.FCC_SMOKE_MODEL_OLLAMA }}
+          FCC_SMOKE_MODEL_KIMI: ${{ secrets.FCC_SMOKE_MODEL_KIMI }}
+          FCC_SMOKE_MODEL_WAFER: ${{ secrets.FCC_SMOKE_MODEL_WAFER }}
+          FCC_SMOKE_MODEL_OPENCODE: ${{ secrets.FCC_SMOKE_MODEL_OPENCODE }}
+          FCC_SMOKE_MODEL_ZAI: ${{ secrets.FCC_SMOKE_MODEL_ZAI }}
+          FCC_SMOKE_NIM_MODELS: ${{ secrets.FCC_SMOKE_NIM_MODELS }}
+          FCC_SMOKE_NIM_EXTRA_MODELS: ${{ secrets.FCC_SMOKE_NIM_EXTRA_MODELS }}
+          FCC_SMOKE_OPENROUTER_FREE_MODELS: ${{ secrets.FCC_SMOKE_OPENROUTER_FREE_MODELS }}
+          FCC_SMOKE_OPENROUTER_FREE_EXTRA_MODELS: ${{ secrets.FCC_SMOKE_OPENROUTER_FREE_EXTRA_MODELS }}
+          ENABLE_OPUS_THINKING: ${{ secrets.ENABLE_OPUS_THINKING }}
+          ENABLE_SONNET_THINKING: ${{ secrets.ENABLE_SONNET_THINKING }}
+          ENABLE_HAIKU_THINKING: ${{ secrets.ENABLE_HAIKU_THINKING }}
+          ENABLE_MODEL_THINKING: ${{ secrets.ENABLE_MODEL_THINKING || true }}
+          NVIDIA_NIM_PROXY: ${{ secrets.NVIDIA_NIM_PROXY }}
+          OPENROUTER_PROXY: ${{ secrets.OPENROUTER_PROXY }}
+          LMSTUDIO_PROXY: ${{ secrets.LMSTUDIO_PROXY }}
+          LLAMACPP_PROXY: ${{ secrets.LLAMACPP_PROXY }}
+          KIMI_PROXY: ${{ secrets.KIMI_PROXY }}
+          WAFER_PROXY: ${{ secrets.WAFER_PROXY }}
+          OPENCODE_PROXY: ${{ secrets.OPENCODE_PROXY }}
+          ZAI_PROXY: ${{ secrets.ZAI_PROXY }}
+          PROVIDER_RATE_LIMIT: ${{ secrets.PROVIDER_RATE_LIMIT ||1 }}
+          PROVIDER_RATE_WINDOW: ${{ secrets.PROVIDER_RATE_WINDOW || 3 }}
+          PROVIDER_MAX_CONCURRENCY: ${{ secrets.PROVIDER_MAX_CONCURRENCY || 5 }}
+          HTTP_READ_TIMEOUT: ${{ secrets.HTTP_READ_TIMEOUT || 300 }}
+          HTTP_WRITE_TIMEOUT: ${{ secrets.HTTP_WRITE_TIMEOUT || 60 }}
+          HTTP_CONNECT_TIMEOUT: ${{ secrets.HTTP_CONNECT_TIMEOUT || 60 }}
+          ANTHROPIC_AUTH_TOKEN: ${{ secrets.ANTHROPIC_AUTH_TOKEN || 'freecc' }}
+          FCC_OPEN_BROWSER: ${{ secrets.FCC_OPEN_BROWSER || true }}
+          MESSAGING_PLATFORM: ${{ secrets.MESSAGING_PLATFORM || 'discord' }}
+          MESSAGING_RATE_LIMIT: ${{ secrets.MESSAGING_RATE_LIMIT || 1 }}
+          MESSAGING_RATE_WINDOW: ${{ secrets.MESSAGING_RATE_WINDOW || 1 }}
+          VOICE_NOTE_ENABLED: ${{ secrets.VOICE_NOTE_ENABLED || false }}
+          WHISPER_DEVICE: ${{ secrets.WHISPER_DEVICE || 'nvidia_nim' }}
+          WHISPER_MODEL: ${{ secrets.WHISPER_MODEL || 'openai/whisper-large-v3' }}
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          ALLOWED_TELEGRAM_USER_ID: ${{ secrets.ALLOWED_TELEGRAM_USER_ID }}
+          DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+          ALLOWED_DISCORD_CHANNELS: ${{ secrets.ALLOWED_DISCORD_CHANNELS }}
+          ALLOWED_DIR: ${{ secrets.ALLOWED_DIR }}
+          FAST_PREFIX_DETECTION: ${{ secrets.FAST_PREFIX_DETECTION || true }}
+          ENABLE_NETWORK_PROBE_MOCK: ${{ secrets.ENABLE_NETWORK_PROBE_MOCK || true }}
+          ENABLE_TITLE_GENERATION_SKIP: ${{ secrets.ENABLE_TITLE_GENERATION_SKIP || true }}
+          ENABLE_SUGGESTION_MODE_SKIP: ${{ secrets.ENABLE_SUGGESTION_MODE_SKIP || true }}
+          ENABLE_FILEPATH_EXTRACTION_MOCK: ${{ secrets.ENABLE_FILEPATH_EXTRACTION_MOCK || true }}
+          ENABLE_WEB_SERVER_TOOLS: ${{ secrets.ENABLE_WEB_SERVER_TOOLS || true }}
+          WEB_FETCH_ALLOWED_SCHEMES: ${{ secrets.WEB_FETCH_ALLOWED_SCHEMES || 'http,https' }}
+          WEB_FETCH_ALLOW_PRIVATE_NETWORKS: ${{ secrets.WEB_FETCH_ALLOW_PRIVATE_NETWORKS || false }}
+          DEBUG_PLATFORM_EDITS: ${{ secrets.DEBUG_PLATFORM_EDITS || false }}
+          DEBUG_SUBAGENT_STACK: ${{ secrets.DEBUG_SUBAGENT_STACK || false }}
+          LOG_RAW_API_PAYLOADS: ${{ secrets.LOG_RAW_API_PAYLOADS || false }}
+          LOG_RAW_SSE_EVENTS: ${{ secrets.LOG_RAW_SSE_EVENTS || false }}
+          LOG_API_ERROR_TRACEBACKS: ${{ secrets.LOG_API_ERROR_TRACEBACKS || false }}
+          LOG_RAW_MESSAGING_CONTENT: ${{ secrets.LOG_RAW_MESSAGING_CONTENT || false }}
+          LOG_RAW_CLI_DIAGNOSTICS: ${{ secrets.LOG_RAW_CLI_DIAGNOSTICS || false }}
+          LOG_MESSAGING_ERROR_DETAILS: ${{ secrets.LOG_MESSAGING_ERROR_DETAILS || false }}
+        run: |
+          nohup uv run fcc-server &
+          sleep 2
+
+      - name: Configure Claude environment
+        working-directory: cc-translation-server
+        shell: bash
+        run: |
+          uv run fcc-src >> $GITHUB_ENV
+
+      - name: Run Claude Code
+        id: claude
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_AUTH_TOKEN || 'freecc' }}
+          # Optional: Customize the trigger phrase (default: @claude)
+          # trigger_phrase: "/claude"
+
+          # Optional: Trigger when specific user is assigned to an issue
+          # assignee_trigger: "claude-bot"
+
+          # Optional: Configure Claude's behavior with CLI arguments
+          # claude_args: |
+          #   --model claude-opus-4-1-20250805
+          #   --max-turns 10
+          #   --allowedTools "Bash(npm install),Bash(npm run build),Bash(npm run test:*),Bash(npm run lint:*)"
+          #   --system-prompt "Follow our coding standards. Ensure all new code has tests. Use TypeScript for new files."
+
+          # Optional: Advanced settings configuration
+          # settings: |
+          #   {
+          #     "env": {
+          #       "NODE_ENV": "test"
+          #     }
+          #   }
+          #
+
+      - name: Check logs discord
+        working-directory: cc-translation-server
+        run: |
+          ls logs
+
+      - name: Upload proxy logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cc-translation-server-logs
+          path: cc-translation-server/logs/proxy.log
